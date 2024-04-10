@@ -95,6 +95,7 @@ final class TestCase: XCTestCase {
         }
 
         let (client, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let exp = expectation(description: "Did received result")
         var receivedError: Error? = nil
 
         sut.get(from: getURL()) { result in
@@ -103,7 +104,10 @@ final class TestCase: XCTestCase {
                     receivedError = error
                 case .success: break
             }
+            exp.fulfill()
         }
+
+        waitForExpectations(timeout: 0.1)
 
         XCTAssertNotNil(receivedError)
     }
@@ -128,6 +132,8 @@ final class TestCase: XCTestCase {
 
         let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
         var receivedError: [Error] = []
+        let exp1 = expectation(description: "Did received result")
+        let exp2 = expectation(description: "Did received result")
 
         sut.get(from: getURL()) { result in
             switch result {
@@ -135,6 +141,7 @@ final class TestCase: XCTestCase {
                     receivedError.append(error)
                 case .success: break
             }
+            exp1.fulfill()
         }
 
         sut.get(from: getURL()) { result in
@@ -143,7 +150,12 @@ final class TestCase: XCTestCase {
                     receivedError.append(error)
                 case .success: break
             }
+            exp2.fulfill()
         }
+
+        client.complete()
+
+        wait(for: [exp1, exp2], timeout: 0.1)
 
         XCTAssertEqual(receivedError.count, 1)
     }
@@ -151,10 +163,24 @@ final class TestCase: XCTestCase {
     // MARK: Helpers
 
     private class HTTPClientSpy: HTTPClient {
-        var requests: [URL] = []
+
+        var requests: [(url: URL, completion: (Result<(Data, HTTPURLResponse), Error>) -> Void)] = []
 
         func get(from url: URL, completion: @escaping (Result<(Data, HTTPURLResponse), Error>) -> Void) {
-            requests.append(url)
+            requests.append( (url, completion) )
+        }
+
+        func complete(with data: Data = Data(), at index: Int = 0) {
+            let code = 200
+            let response = HTTPURLResponse(url: requests[index].url,
+                                           statusCode: code,
+                                           httpVersion: nil,
+                                           headerFields: nil)!
+            requests[index].completion( .success((data, response)) )
+        }
+
+        func complete(with error: Error, at index: Int = 0) {
+
         }
     }
 
