@@ -64,7 +64,7 @@ final class TestCase: XCTestCase {
         XCTAssertTrue(client.requests.isEmpty, "Expects an empty requests list ")
     }
 
-    func test_getFromURL_requestsClientGetFromURL() {
+    func test_getFromURL_requestsClient() {
         var dateProvider = {
             return Date(timeIntervalSince1970: 0)
         }
@@ -75,7 +75,7 @@ final class TestCase: XCTestCase {
         XCTAssertEqual(client.requests.count, 1)
     }
 
-    func test_getFromURL_returnsErrorWhenInitWithZeroTokens() {
+    func test_getFromURL_doesNotRequestsClientWhenSUTInitWithZeroTokens() {
         var dateProvider = {
             return Date(timeIntervalSince1970: 0)
         }
