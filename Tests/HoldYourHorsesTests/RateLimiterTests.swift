@@ -75,6 +75,17 @@ final class TestCase: XCTestCase {
         XCTAssertEqual(client.requests.count, 1)
     }
 
+    func test_getFromURL_returnsErrorWhenInitWithZeroTokens() {
+        var dateProvider = {
+            return Date(timeIntervalSince1970: 0)
+        }
+
+        let (client, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        sut.get(from: getURL()) { _ in }
+
+        XCTAssertEqual(client.requests.count, 0)
+    }
+
     // MARK: Helpers
 
     private class HTTPClientSpy: HTTPClient {
