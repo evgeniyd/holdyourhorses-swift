@@ -53,6 +53,9 @@ final class RateLimiter: HTTPClient {
     func get(from url: URL, completion: @escaping (Result<(Data, HTTPURLResponse), Error>) -> Void) {
         if shouldAllowRequest() {
             client.get(from: url, completion: completion)
+        } else {
+            let error = NSError(domain: "RateLimiterError", code: 0)
+            completion(.failure(error))
         }
     }
 }
@@ -84,6 +87,25 @@ final class TestCase: XCTestCase {
         sut.get(from: getURL()) { _ in }
 
         XCTAssertEqual(client.requests.count, 0)
+    }
+
+    func test_getFromURL_callsBackWithErrorWhenSUTInitWithZeroTokens() {
+        var dateProvider = {
+            return Date(timeIntervalSince1970: 0)
+        }
+
+        let (client, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        var receivedError: Error? = nil
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case let .failure(error):
+                    receivedError = error
+                case .success: break
+            }
+        }
+
+        XCTAssertNotNil(receivedError)
     }
 
     // MARK: Helpers
