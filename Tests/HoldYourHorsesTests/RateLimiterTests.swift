@@ -108,6 +108,46 @@ final class TestCase: XCTestCase {
         XCTAssertNotNil(receivedError)
     }
 
+    func test_getFromURL_requestsClientOnceIfTwoRequestsSentSimultaneously() {
+        var dateProvider = {
+            return Date(timeIntervalSince1970: 0)
+        }
+
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+
+        sut.get(from: getURL()) { _ in }
+        sut.get(from: getURL()) { _ in }
+
+        XCTAssertEqual(client.requests.count, 1)
+    }
+
+    func test_getFromURL_callsBackWithErrorIfTwoRequestsSentSimultaneously() {
+        var dateProvider = {
+            return Date(timeIntervalSince1970: 0)
+        }
+
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        var receivedError: [Error] = []
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case let .failure(error):
+                    receivedError.append(error)
+                case .success: break
+            }
+        }
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case let .failure(error):
+                    receivedError.append(error)
+                case .success: break
+            }
+        }
+
+        XCTAssertEqual(receivedError.count, 1)
+    }
+
     // MARK: Helpers
 
     private class HTTPClientSpy: HTTPClient {
