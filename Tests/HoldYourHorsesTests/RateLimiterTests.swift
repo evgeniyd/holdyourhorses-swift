@@ -160,6 +160,41 @@ final class TestCase: XCTestCase {
         XCTAssertEqual(receivedError.count, 1)
     }
 
+    func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentSimultaneouslyEqualNumberOfTokens() {
+        let  dateProvider = {
+            return Date(timeIntervalSince1970: 0)
+        }
+        let (client, sut) = makeSUT(maxTokens: 2, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let exp1 = expectation(description: "Did received result")
+        let exp2 = expectation(description: "Did received result")
+        var receivedResponsesCount = 0
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case .success:
+                    receivedResponsesCount += 1
+                case .failure: break
+            }
+            exp1.fulfill()
+        }
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case .success:
+                    receivedResponsesCount += 1
+                case .failure: break
+            }
+            exp2.fulfill()
+        }
+
+        client.complete(at:0)
+        client.complete(at:1)
+
+        wait(for: [exp1, exp2], timeout: 0.1)
+
+        XCTAssertEqual(receivedResponsesCount, 2)
+    }
+
     // MARK: Helpers
 
     private class HTTPClientSpy: HTTPClient {
