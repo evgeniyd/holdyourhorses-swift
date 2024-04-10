@@ -68,7 +68,7 @@ final class TestCase: XCTestCase {
     }
 
     func test_getFromURL_requestsClient() {
-        var dateProvider = {
+        let dateProvider = {
             return Date(timeIntervalSince1970: 0)
         }
 
@@ -79,7 +79,7 @@ final class TestCase: XCTestCase {
     }
 
     func test_getFromURL_doesNotRequestsClientWhenSUTInitWithZeroTokens() {
-        var dateProvider = {
+        let dateProvider = {
             return Date(timeIntervalSince1970: 0)
         }
 
@@ -89,12 +89,12 @@ final class TestCase: XCTestCase {
         XCTAssertEqual(client.requests.count, 0)
     }
 
-    func test_getFromURL_callsBackWithErrorWhenSUTInitWithZeroTokens() {
-        var dateProvider = {
+    func test_getFromURL_failsWithErrorWhenSUTInitWithZeroTokens() {
+        let dateProvider = {
             return Date(timeIntervalSince1970: 0)
         }
 
-        let (client, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let (_, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
         let exp = expectation(description: "Did received result")
         var receivedError: Error? = nil
 
@@ -112,8 +112,8 @@ final class TestCase: XCTestCase {
         XCTAssertNotNil(receivedError)
     }
 
-    func test_getFromURL_requestsClientOnceIfTwoRequestsSentSimultaneously() {
-        var dateProvider = {
+    func test_getFromURL_requestsClientOnceWhenTwoRequestsSentSimultaneously() {
+        let dateProvider = {
             return Date(timeIntervalSince1970: 0)
         }
 
@@ -125,8 +125,8 @@ final class TestCase: XCTestCase {
         XCTAssertEqual(client.requests.count, 1)
     }
 
-    func test_getFromURL_callsBackWithErrorIfTwoRequestsSentSimultaneously() {
-        var dateProvider = {
+    func test_getFromURL_failsWithErrorOnceWhenTwoRequestsSentSimultaneously() {
+        let  dateProvider = {
             return Date(timeIntervalSince1970: 0)
         }
 
