@@ -205,22 +205,15 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
         return exp
     }
 
-    private final class Box<T> {
-        var value: T
-        init(_ value: T) {
-            self.value = value
-        }
-    }
-
     private final class VariableDateProvider {
-        private let timeBox = Box<TimeInterval>(0)
+        private var timeInterval: TimeInterval = 0.0
 
         func getDate() -> Date {
-            Date(timeIntervalSince1970: timeBox.value)
+            Date(timeIntervalSince1970: timeInterval)
         }
 
         func addTime(_ timeInterval: TimeInterval) {
-            timeBox.value += timeInterval
+            self.timeInterval += timeInterval
         }
     }
 
