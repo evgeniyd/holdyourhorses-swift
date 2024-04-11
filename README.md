@@ -1,2 +1,2 @@
-# holdyourhorses-swift
-Rate Limiter package for HTTP Client requests
+# Hold Your Horses
+> Rate Limiter Swift Package for HTTP Client requests (written in Swift)
