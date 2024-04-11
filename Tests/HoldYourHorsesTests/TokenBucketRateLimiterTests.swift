@@ -60,17 +60,15 @@ final class TokenBucketRateLimiterTests: XCTestCase {
     }
 
     func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentSlowerThanTokenRefreshRate() {
-        let timeBox = Box<TimeInterval>(0)
-        let dateProvider = { [timeBox] in
-            return Date(timeIntervalSince1970: timeBox.value)
-        }
+        let dateProvider = VariableDateProvider()
+
         let tokenRefreshRate = 1.0
         let nextTimeInterval = 1.1
 
-        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider.getDate)
 
         let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
-        timeBox.value += nextTimeInterval
+        dateProvider.addTime(nextTimeInterval)
         let exp2 = sendRequestExpectedToCompleteWithSuccess(sut)
 
         client.completeAllRequests()
@@ -79,18 +77,15 @@ final class TokenBucketRateLimiterTests: XCTestCase {
     }
 
     func test_getFromURL_requestsClientOnceWhenRequestsSentFasterThanTokenRefreshRate() {
-        let timeBox = Box<TimeInterval>(0)
-        let dateProvider = { [timeBox] in
-            return Date(timeIntervalSince1970: timeBox.value)
-        }
+        let dateProvider = VariableDateProvider()
 
         let tokenRefreshRate = 1.0
         let nextTimeInterval = 0.9
 
-        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider.getDate)
 
         let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
-        timeBox.value += nextTimeInterval
+        dateProvider.addTime(nextTimeInterval)
         let exp2 = sendRequestExpectedToCompleteWithFailure(sut)
 
         client.completeAllRequests()
@@ -99,18 +94,15 @@ final class TokenBucketRateLimiterTests: XCTestCase {
     }
 
     func test_getFromURL_requestsClientOnceTimesWhenRequestsSentEqualToTokenRefreshRate() {
-        let timeBox = Box<TimeInterval>(0)
-        let dateProvider = { [timeBox] in
-            return Date(timeIntervalSince1970: timeBox.value)
-        }
+        let dateProvider = VariableDateProvider()
 
         let tokenRefreshRate = 1.0
         let nextTimeInterval = 1.0
 
-        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider.getDate)
 
         let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
-        timeBox.value += nextTimeInterval
+        dateProvider.addTime(nextTimeInterval)
         let exp2 = sendRequestExpectedToCompleteWithFailure(sut)
 
         client.completeAllRequests()
@@ -130,25 +122,23 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
      */
 
     func test_getFromURL_requestRateAndTokenRefreshRateMatchesExpectations() {
-        let timeBox = Box<TimeInterval>(0)
-        let dateProvider = { [timeBox] in
-            return Date(timeIntervalSince1970: timeBox.value)
-        }
+        let dateProvider = VariableDateProvider()
+
         let tokenRefreshRate = 1.0
         let maxTokens = 2
 
-        let (client, sut) = makeSUT(maxTokens: maxTokens, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: maxTokens, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider.getDate)
 
         let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
-        timeBox.value += 0.6 // 0.6
+        dateProvider.addTime(0.6) // 0.6
         let exp2 = sendRequestExpectedToCompleteWithSuccess(sut)
-        timeBox.value += 0.5 // 1.1
+        dateProvider.addTime(0.5) // 1.1
         let exp3 = sendRequestExpectedToCompleteWithSuccess(sut)
-        timeBox.value += 0.3 // 1.4
+        dateProvider.addTime(0.3) // 1.4
         let exp4 = sendRequestExpectedToCompleteWithSuccess(sut)
-        timeBox.value += 0.3 // 1.7
+        dateProvider.addTime(0.3) // 1.7
         let exp5 = sendRequestExpectedToCompleteWithFailure(sut)
-        timeBox.value += 0.5 // 2.2
+        dateProvider.addTime(0.5) // 2.2
         let exp6 = sendRequestExpectedToCompleteWithSuccess(sut)
 
         client.completeAllRequests()
@@ -219,6 +209,18 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
         var value: T
         init(_ value: T) {
             self.value = value
+        }
+    }
+
+    private final class VariableDateProvider {
+        private let timeBox = Box<TimeInterval>(0)
+
+        func getDate() -> Date {
+            Date(timeIntervalSince1970: timeBox.value)
+        }
+
+        func addTime(_ timeInterval: TimeInterval) {
+            timeBox.value += timeInterval
         }
     }
 
