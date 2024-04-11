@@ -143,7 +143,32 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
 
         client.completeAllRequests()
 
-        waitForExpectations(timeout: 0.1)
+        wait(for: [exp1, exp2, exp3, exp4, exp5, exp6], timeout: 0.1)
+    }
+
+    func test_getFromURL_failsEveryRequestSetFasterThanTokenRefreshRate() {
+        let dateProvider = VariableDateProvider()
+
+        let tokenRefreshRate = 1.0
+        let maxTokens = 2
+
+        let (client, sut) = makeSUT(maxTokens: maxTokens, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider.getDate)
+
+        let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
+        dateProvider.addTime(0.5) // 0.5
+        let exp2 = sendRequestExpectedToCompleteWithSuccess(sut)
+        dateProvider.addTime(0.5) // 1.0
+        let exp3 = sendRequestExpectedToCompleteWithFailure(sut)
+        dateProvider.addTime(0.5) // 1.5
+        let exp4 = sendRequestExpectedToCompleteWithSuccess(sut)
+        dateProvider.addTime(0.5) // 2.0
+        let exp5 = sendRequestExpectedToCompleteWithSuccess(sut)
+        dateProvider.addTime(0.5) // 2.5
+        let exp6 = sendRequestExpectedToCompleteWithFailure(sut)
+
+        client.completeAllRequests()
+
+        wait(for: [exp1, exp2, exp3, exp4, exp5, exp6], timeout: 0.1)
     }
 
     // MARK: Helpers
