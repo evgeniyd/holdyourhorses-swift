@@ -2,65 +2,7 @@
 import XCTest
 import HoldYourHorses
 
-protocol HTTPClient {
-    typealias Result = Swift.Result<(Data, HTTPURLResponse), Error>
-
-    func get(from url: URL, completion: @escaping (HTTPClient.Result) -> Void)
-}
-
-final class RateLimiter: HTTPClient {
-
-    private let client: HTTPClient
-
-    private var tokens: Int
-    private let maxTokens: Int
-    private var lastRequestTime: Date
-    private let tokenRefreshRate: TimeInterval
-    private let getCurrentDate: () -> Date
-
-    init(client: HTTPClient, maxTokens: Int = 3, tokenRefreshRate: TimeInterval = 1.0, currentDateProvider: @escaping (() -> Date) = Date.init) {
-        self.client = client
-        self.maxTokens = maxTokens
-        self.tokenRefreshRate = tokenRefreshRate
-        self.tokens = maxTokens
-        self.getCurrentDate = currentDateProvider
-        self.lastRequestTime = currentDateProvider()
-    }
-
-    private func shouldAllowRequest() -> Bool {
-        refreshTokens()
-
-        guard tokens > 0 else {
-            return false
-        }
-
-        tokens -= 1
-        return true
-    }
-
-    private func refreshTokens() {
-        let now = getCurrentDate()
-        let elapsed = now.timeIntervalSince(lastRequestTime)
-        if elapsed > tokenRefreshRate {
-            let extraTokens = Int(elapsed / tokenRefreshRate) * maxTokens
-            tokens = min(maxTokens, tokens + extraTokens)
-            lastRequestTime = now
-        }
-    }
-
-    // MARK: HTTPClient
-
-    func get(from url: URL, completion: @escaping (Result<(Data, HTTPURLResponse), Error>) -> Void) {
-        if shouldAllowRequest() {
-            client.get(from: url, completion: completion)
-        } else {
-            let error = NSError(domain: "RateLimiterError", code: 0)
-            completion(.failure(error))
-        }
-    }
-}
-
-final class TestCase: XCTestCase {
+final class TokenBucketRateLimiterTests: XCTestCase {
 
     func test_init_doesNotRequestClient() {
         let (client, _) = makeSUT()
@@ -241,7 +183,7 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
         }
     }
 
-    private func sendRequestExpectedToCompleteWithSuccess(_ sut: RateLimiter,
+    private func sendRequestExpectedToCompleteWithSuccess(_ sut: TokenBucketRateLimiter,
                                                           file: StaticString = #filePath,
                                                           line: UInt = #line) -> XCTestExpectation {
         let exp = expectation(description: "Did received result")
@@ -257,7 +199,7 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
         return exp 
     }
 
-    private func sendRequestExpectedToCompleteWithFailure(_ sut: RateLimiter,
+    private func sendRequestExpectedToCompleteWithFailure(_ sut: TokenBucketRateLimiter,
                                                           file: StaticString = #filePath,
                                                           line: UInt = #line) -> XCTestExpectation {
         let exp = expectation(description: "Did received result")
@@ -280,9 +222,9 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
         }
     }
 
-    private func makeSUT(maxTokens: Int = 3, tokenRefreshRate: TimeInterval = 1.0, currentDateProvider: @escaping (() -> Date) = Date.init, file: StaticString = #file, line: UInt = #line) -> (client: HTTPClientSpy, sut: RateLimiter) {
+    private func makeSUT(maxTokens: Int = 3, tokenRefreshRate: TimeInterval = 1.0, currentDateProvider: @escaping (() -> Date) = Date.init, file: StaticString = #file, line: UInt = #line) -> (client: HTTPClientSpy, sut: TokenBucketRateLimiter) {
         let client = HTTPClientSpy()
-        let sut = RateLimiter(client: client, maxTokens: maxTokens, tokenRefreshRate: tokenRefreshRate, currentDateProvider: currentDateProvider)
+        let sut = TokenBucketRateLimiter(client: client, maxTokens: maxTokens, tokenRefreshRate: tokenRefreshRate, currentDateProvider: currentDateProvider)
         trackForMemoryLeaks(client, file: file, line: line)
         trackForMemoryLeaks(sut, file: file, line: line)
         return (client, sut)
