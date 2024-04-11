@@ -133,7 +133,7 @@ final class TestCase: XCTestCase {
             exp2.fulfill()
         }
 
-        client.complete()
+        client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
 
@@ -164,8 +164,7 @@ final class TestCase: XCTestCase {
             exp2.fulfill()
         }
 
-        client.complete(at:0)
-        client.complete(at:1)
+        client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
 
@@ -205,8 +204,7 @@ final class TestCase: XCTestCase {
             exp2.fulfill()
         }
 
-        client.complete(at:0)
-        client.complete(at:1)
+        client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
 
@@ -250,7 +248,7 @@ final class TestCase: XCTestCase {
             exp2.fulfill()
         }
 
-        client.complete(at:0)
+        client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
 
@@ -295,7 +293,7 @@ final class TestCase: XCTestCase {
             exp2.fulfill()
         }
 
-        client.complete(at:0)
+        client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
 
@@ -313,17 +311,20 @@ final class TestCase: XCTestCase {
             requests.append( (url, completion) )
         }
 
-        func complete(with data: Data = Data(), at index: Int = 0) {
+        func completeAllRequests(with data: Data = Data()) {
+            for request in requests {
+                let response = createHTTPURLResponse(request.url)
+                request.completion( .success((data, response)) )
+            }
+        }
+
+        private func createHTTPURLResponse(_ url: URL) -> HTTPURLResponse {
             let code = 200
-            let response = HTTPURLResponse(url: requests[index].url,
+            let response = HTTPURLResponse(url: url,
                                            statusCode: code,
                                            httpVersion: nil,
                                            headerFields: nil)!
-            requests[index].completion( .success((data, response)) )
-        }
-
-        func complete(with error: Error, at index: Int = 0) {
-
+            return response
         }
     }
 
