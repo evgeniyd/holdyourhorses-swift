@@ -83,21 +83,8 @@ final class TestCase: XCTestCase {
 
     func test_getFromURL_failsWithErrorWhenSUTInitWithZeroTokens() {
         let (_, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
-        let exp = expectation(description: "Did received result")
-        var receivedError: Error? = nil
-
-        sut.get(from: getURL()) { result in
-            switch result {
-                case let .failure(error):
-                    receivedError = error
-                case .success: break
-            }
-            exp.fulfill()
-        }
-
+        let exp = sendRequestExpectedToCompleteWithFailure(sut)
         waitForExpectations(timeout: 0.1)
-
-        XCTAssertNotNil(receivedError)
     }
 
     func test_getFromURL_requestsClientOnceWhenTwoRequestsSentSimultaneously() {
@@ -111,64 +98,23 @@ final class TestCase: XCTestCase {
 
     func test_getFromURL_failsWithErrorOnceWhenTwoRequestsSentSimultaneously() {
         let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
-        var receivedError: [Error] = []
-        let exp1 = expectation(description: "Did received result")
-        let exp2 = expectation(description: "Did received result")
 
-        sut.get(from: getURL()) { result in
-            switch result {
-                case let .failure(error):
-                    receivedError.append(error)
-                case .success: break
-            }
-            exp1.fulfill()
-        }
-
-        sut.get(from: getURL()) { result in
-            switch result {
-                case let .failure(error):
-                    receivedError.append(error)
-                case .success: break
-            }
-            exp2.fulfill()
-        }
+        let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
+        let exp2 = sendRequestExpectedToCompleteWithFailure(sut)
 
         client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
-
-        XCTAssertEqual(receivedError.count, 1)
     }
 
     func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentSimultaneouslyIsEqualToMaxTokens() {
         let (client, sut) = makeSUT(maxTokens: 2, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
-        let exp1 = expectation(description: "Did received result")
-        let exp2 = expectation(description: "Did received result")
-        var receivedResponsesCount = 0
-
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure: break
-            }
-            exp1.fulfill()
-        }
-
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure: break
-            }
-            exp2.fulfill()
-        }
+        let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
+        let exp2 = sendRequestExpectedToCompleteWithSuccess(sut)
 
         client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
-
-        XCTAssertEqual(receivedResponsesCount, 2)
     }
 
     func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentSlowerThanTokenRefreshRate() {
@@ -180,35 +126,14 @@ final class TestCase: XCTestCase {
         let nextTimeInterval = 1.1
 
         let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
-        let exp1 = expectation(description: "Did received result")
-        let exp2 = expectation(description: "Did received result")
-        var receivedResponsesCount = 0
 
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure: break
-            }
-            exp1.fulfill()
-        }
-
+        let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
         timeBox.value += nextTimeInterval
-
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure: break
-            }
-            exp2.fulfill()
-        }
+        let exp2 = sendRequestExpectedToCompleteWithSuccess(sut)
 
         client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
-
-        XCTAssertEqual(receivedResponsesCount, 2)
     }
 
     func test_getFromURL_requestsClientOnceWhenRequestsSentFasterThanTokenRefreshRate() {
@@ -221,39 +146,14 @@ final class TestCase: XCTestCase {
         let nextTimeInterval = 0.9
 
         let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
-        let exp1 = expectation(description: "Did received result")
-        let exp2 = expectation(description: "Did received result")
-        var receivedResponsesCount = 0
-        var receivedErrorCount = 0
 
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure:
-                    receivedErrorCount += 1
-            }
-            exp1.fulfill()
-        }
-
+        let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
         timeBox.value += nextTimeInterval
-
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure:
-                    receivedErrorCount += 1
-            }
-            exp2.fulfill()
-        }
+        let exp2 = sendRequestExpectedToCompleteWithFailure(sut)
 
         client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
-
-        XCTAssertEqual(receivedResponsesCount, 1)
-        XCTAssertEqual(receivedErrorCount, 1)
     }
 
     func test_getFromURL_requestsClientOnceTimesWhenRequestsSentEqualToTokenRefreshRate() {
@@ -266,39 +166,14 @@ final class TestCase: XCTestCase {
         let nextTimeInterval = 1.0
 
         let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
-        let exp1 = expectation(description: "Did received result")
-        let exp2 = expectation(description: "Did received result")
-        var receivedResponsesCount = 0
-        var receivedErrorCount = 0
 
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure:
-                    receivedErrorCount += 1
-            }
-            exp1.fulfill()
-        }
-
+        let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
         timeBox.value += nextTimeInterval
-
-        sut.get(from: getURL()) { result in
-            switch result {
-                case .success:
-                    receivedResponsesCount += 1
-                case .failure:
-                    receivedErrorCount += 1
-            }
-            exp2.fulfill()
-        }
+        let exp2 = sendRequestExpectedToCompleteWithFailure(sut)
 
         client.completeAllRequests()
 
         wait(for: [exp1, exp2], timeout: 0.1)
-
-        XCTAssertEqual(receivedResponsesCount, 1)
-        XCTAssertEqual(receivedErrorCount, 1)
     }
 
     // MARK: Helpers
@@ -326,6 +201,38 @@ final class TestCase: XCTestCase {
                                            headerFields: nil)!
             return response
         }
+    }
+
+    private func sendRequestExpectedToCompleteWithSuccess(_ sut: RateLimiter,
+                                                          file: StaticString = #filePath,
+                                                          line: UInt = #line) -> XCTestExpectation {
+        let exp = expectation(description: "Did received result")
+        var receivedSuccessCount = 0
+        sut.get(from: getURL()) { result in
+            switch result {
+                case .success: break
+                case .failure:
+                    XCTFail("Expected to complete with success. Completed with failure instead", file: file, line: line)
+            }
+            exp.fulfill()
+        }
+        return exp 
+    }
+
+    private func sendRequestExpectedToCompleteWithFailure(_ sut: RateLimiter,
+                                                          file: StaticString = #filePath,
+                                                          line: UInt = #line) -> XCTestExpectation {
+        let exp = expectation(description: "Did received result")
+        sut.get(from: getURL()) { result in
+            var receivedErrorCount = 0
+            switch result {
+                case .success:
+                    XCTFail("Expected to complete with failure. Completed with success instead", file: file, line: line)
+                case .failure: break
+            }
+            exp.fulfill()
+        }
+        return exp
     }
 
     private final class Box<T> {
