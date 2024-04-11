@@ -176,6 +176,44 @@ final class TestCase: XCTestCase {
         wait(for: [exp1, exp2], timeout: 0.1)
     }
 
+    /*
+
+2 tokens per 1 sec
+
+          req.1 (OK)               req.2 (OK)               req.3 (OK)     req.4 (OK)    req.5 (FAIL)              req.6 (OK)
+          V                        V                        V              V              V                        V
+tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    0    0    0    0    0    0    0    1
+          |----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|
+          0.1  0.2  0.3  0.4  0.5  0.6  0.7  0.8  0.9  1.0  1.1  1.2  1.3  1.4  1.5  1.6  1.7  1.8  1.9  2.0  2.1  2.2
+     */
+
+    func test_getFromURL_requestRateAndTokenRefreshRateMatchesExpectations() {
+        let timeBox = Box<TimeInterval>(0)
+        let  dateProvider = { [timeBox] in
+            return Date(timeIntervalSince1970: timeBox.value)
+        }
+        let tokenRefreshRate = 1.0
+        let maxTokens = 2
+
+        let (client, sut) = makeSUT(maxTokens: maxTokens, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
+
+        let exp1 = sendRequestExpectedToCompleteWithSuccess(sut)
+        timeBox.value += 0.6 // 0.6
+        let exp2 = sendRequestExpectedToCompleteWithSuccess(sut)
+        timeBox.value += 0.5 // 1.1
+        let exp3 = sendRequestExpectedToCompleteWithSuccess(sut)
+        timeBox.value += 0.3 // 1.4
+        let exp4 = sendRequestExpectedToCompleteWithSuccess(sut)
+        timeBox.value += 0.3 // 1.7
+        let exp5 = sendRequestExpectedToCompleteWithFailure(sut)
+        timeBox.value += 0.5 // 2.2
+        let exp6 = sendRequestExpectedToCompleteWithSuccess(sut)
+
+        client.completeAllRequests()
+
+        waitForExpectations(timeout: 0.1)
+    }
+
     // MARK: Helpers
 
     private class HTTPClientSpy: HTTPClient {
