@@ -80,7 +80,7 @@ final class TokenBucketRateLimiterTests: XCTestCase {
 
     func test_getFromURL_requestsClientOnceWhenRequestsSentFasterThanTokenRefreshRate() {
         let timeBox = Box<TimeInterval>(0)
-        let  dateProvider = { [timeBox] in
+        let dateProvider = { [timeBox] in
             return Date(timeIntervalSince1970: timeBox.value)
         }
 
@@ -100,7 +100,7 @@ final class TokenBucketRateLimiterTests: XCTestCase {
 
     func test_getFromURL_requestsClientOnceTimesWhenRequestsSentEqualToTokenRefreshRate() {
         let timeBox = Box<TimeInterval>(0)
-        let  dateProvider = { [timeBox] in
+        let dateProvider = { [timeBox] in
             return Date(timeIntervalSince1970: timeBox.value)
         }
 
@@ -131,7 +131,7 @@ tokens: 2 1    1    1    1    1    0    0    0    0    0    1    1    1    0    
 
     func test_getFromURL_requestRateAndTokenRefreshRateMatchesExpectations() {
         let timeBox = Box<TimeInterval>(0)
-        let  dateProvider = { [timeBox] in
+        let dateProvider = { [timeBox] in
             return Date(timeIntervalSince1970: timeBox.value)
         }
         let tokenRefreshRate = 1.0
