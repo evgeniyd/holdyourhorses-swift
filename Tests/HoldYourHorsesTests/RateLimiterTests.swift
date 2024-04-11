@@ -62,39 +62,27 @@ final class RateLimiter: HTTPClient {
 
 final class TestCase: XCTestCase {
 
-    func test_init_doesNotRequest() {
+    func test_init_doesNotRequestClient() {
         let (client, _) = makeSUT()
         XCTAssertTrue(client.requests.isEmpty, "Expects an empty requests list ")
     }
 
     func test_getFromURL_requestsClient() {
-        let dateProvider = {
-            return Date(timeIntervalSince1970: 0)
-        }
-
-        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
         sut.get(from: getURL()) { _ in }
 
         XCTAssertEqual(client.requests.count, 1)
     }
 
     func test_getFromURL_doesNotRequestsClientWhenSUTInitWithZeroTokens() {
-        let dateProvider = {
-            return Date(timeIntervalSince1970: 0)
-        }
-
-        let (client, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
         sut.get(from: getURL()) { _ in }
 
         XCTAssertEqual(client.requests.count, 0)
     }
 
     func test_getFromURL_failsWithErrorWhenSUTInitWithZeroTokens() {
-        let dateProvider = {
-            return Date(timeIntervalSince1970: 0)
-        }
-
-        let (_, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let (_, sut) = makeSUT(maxTokens: 0, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
         let exp = expectation(description: "Did received result")
         var receivedError: Error? = nil
 
@@ -113,11 +101,7 @@ final class TestCase: XCTestCase {
     }
 
     func test_getFromURL_requestsClientOnceWhenTwoRequestsSentSimultaneously() {
-        let dateProvider = {
-            return Date(timeIntervalSince1970: 0)
-        }
-
-        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
 
         sut.get(from: getURL()) { _ in }
         sut.get(from: getURL()) { _ in }
@@ -126,11 +110,7 @@ final class TestCase: XCTestCase {
     }
 
     func test_getFromURL_failsWithErrorOnceWhenTwoRequestsSentSimultaneously() {
-        let dateProvider = {
-            return Date(timeIntervalSince1970: 0)
-        }
-
-        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
         var receivedError: [Error] = []
         let exp1 = expectation(description: "Did received result")
         let exp2 = expectation(description: "Did received result")
@@ -160,11 +140,8 @@ final class TestCase: XCTestCase {
         XCTAssertEqual(receivedError.count, 1)
     }
 
-    func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentSimultaneouslyEqualNumberOfTokens() {
-        let dateProvider = {
-            return Date(timeIntervalSince1970: 0)
-        }
-        let (client, sut) = makeSUT(maxTokens: 2, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+    func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentSimultaneouslyIsEqualToMaxTokens() {
+        let (client, sut) = makeSUT(maxTokens: 2, tokenRefreshRate: 1.0, currentDateProvider: getSameDateProvider())
         let exp1 = expectation(description: "Did received result")
         let exp2 = expectation(description: "Did received result")
         var receivedResponsesCount = 0
@@ -195,12 +172,15 @@ final class TestCase: XCTestCase {
         XCTAssertEqual(receivedResponsesCount, 2)
     }
 
-    func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentAtTokenRefreshRate() {
-        var timeBox = Box<TimeInterval>(0)
-        let  dateProvider = { [timeBox] in
+    func test_getFromURL_requestsClientMultipleTimesWhenRequestsSentSlowerThanTokenRefreshRate() {
+        let timeBox = Box<TimeInterval>(0)
+        let dateProvider = { [timeBox] in
             return Date(timeIntervalSince1970: timeBox.value)
         }
-        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: 1.0, currentDateProvider: dateProvider)
+        let tokenRefreshRate = 1.0
+        let nextTimeInterval = 1.1
+
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
         let exp1 = expectation(description: "Did received result")
         let exp2 = expectation(description: "Did received result")
         var receivedResponsesCount = 0
@@ -214,7 +194,7 @@ final class TestCase: XCTestCase {
             exp1.fulfill()
         }
 
-        timeBox.value += 2.0
+        timeBox.value += nextTimeInterval
 
         sut.get(from: getURL()) { result in
             switch result {
@@ -231,6 +211,96 @@ final class TestCase: XCTestCase {
         wait(for: [exp1, exp2], timeout: 0.1)
 
         XCTAssertEqual(receivedResponsesCount, 2)
+    }
+
+    func test_getFromURL_requestsClientOnceWhenRequestsSentFasterThanTokenRefreshRate() {
+        let timeBox = Box<TimeInterval>(0)
+        let  dateProvider = { [timeBox] in
+            return Date(timeIntervalSince1970: timeBox.value)
+        }
+
+        let tokenRefreshRate = 1.0
+        let nextTimeInterval = 0.9
+
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
+        let exp1 = expectation(description: "Did received result")
+        let exp2 = expectation(description: "Did received result")
+        var receivedResponsesCount = 0
+        var receivedErrorCount = 0
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case .success:
+                    receivedResponsesCount += 1
+                case .failure:
+                    receivedErrorCount += 1
+            }
+            exp1.fulfill()
+        }
+
+        timeBox.value += nextTimeInterval
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case .success:
+                    receivedResponsesCount += 1
+                case .failure:
+                    receivedErrorCount += 1
+            }
+            exp2.fulfill()
+        }
+
+        client.complete(at:0)
+
+        wait(for: [exp1, exp2], timeout: 0.1)
+
+        XCTAssertEqual(receivedResponsesCount, 1)
+        XCTAssertEqual(receivedErrorCount, 1)
+    }
+
+    func test_getFromURL_requestsClientOnceTimesWhenRequestsSentEqualToTokenRefreshRate() {
+        let timeBox = Box<TimeInterval>(0)
+        let  dateProvider = { [timeBox] in
+            return Date(timeIntervalSince1970: timeBox.value)
+        }
+
+        let tokenRefreshRate = 1.0
+        let nextTimeInterval = 1.0
+
+        let (client, sut) = makeSUT(maxTokens: 1, tokenRefreshRate: tokenRefreshRate, currentDateProvider: dateProvider)
+        let exp1 = expectation(description: "Did received result")
+        let exp2 = expectation(description: "Did received result")
+        var receivedResponsesCount = 0
+        var receivedErrorCount = 0
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case .success:
+                    receivedResponsesCount += 1
+                case .failure:
+                    receivedErrorCount += 1
+            }
+            exp1.fulfill()
+        }
+
+        timeBox.value += nextTimeInterval
+
+        sut.get(from: getURL()) { result in
+            switch result {
+                case .success:
+                    receivedResponsesCount += 1
+                case .failure:
+                    receivedErrorCount += 1
+            }
+            exp2.fulfill()
+        }
+
+        client.complete(at:0)
+
+        wait(for: [exp1, exp2], timeout: 0.1)
+
+        XCTAssertEqual(receivedResponsesCount, 1)
+        XCTAssertEqual(receivedErrorCount, 1)
     }
 
     // MARK: Helpers
@@ -274,5 +344,12 @@ final class TestCase: XCTestCase {
 
     private func getURL() -> URL {
         return URL(string: "https://any-url.com")!
+    }
+
+    private func getSameDateProvider() -> (() -> Date) {
+        let dateProvider = {
+            return Date(timeIntervalSince1970: 0)
+        }
+        return dateProvider
     }
 }
